@@ -26,12 +26,8 @@ impl <T: Debug + Display> Tree<T> {
         };
     }
 
-    ///       A
-    ///      / \
-    ///    B2    C4
-    ///   /  \
-    /// N3    E3
-    ///
+    /// Method for displaying the values of inside the tree.
+    /// This method was built with the following ideas:
     /// All the strings in this vec should be of the same size.
     /// All vecs should be at least of length 1.
     pub fn display_string(&self) -> Vec<String> {
