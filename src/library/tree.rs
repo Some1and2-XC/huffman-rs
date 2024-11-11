@@ -1,13 +1,13 @@
-use std::{cmp::max, collections::{BTreeMap, VecDeque}, fmt::{Debug, Display}, sync::Arc};
+use std::{cmp::max, collections::{BTreeMap, HashMap, VecDeque}, fmt::{Debug, Display}, hash::Hash, sync::Arc};
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord)]
-pub struct Tree<T: Debug + Display> {
+#[derive(Debug, Clone, PartialEq, Eq, Ord, Hash)]
+pub struct Tree<T: Debug + Display + Hash> {
     pub left: Option<Arc<Tree<T>>>,
     pub right: Option<Arc<Tree<T>>>,
     pub data: T,
 }
 
-impl <T: Debug + Display> Tree<T> {
+impl <T: Debug + Display + Hash> Tree<T> {
 
     pub fn new(data: T) -> Self {
         return Self {
@@ -165,6 +165,92 @@ impl <T: Debug + Display> Tree<T> {
 
 }
 
+impl <T: Debug + Display + Hash + Eq + PartialOrd + Clone> Tree<Node<T>> {
+
+    /// Creates a encoding table and encodes data
+    pub fn encode(&self, data: &[T]) -> (Vec<bool>, HashMap<T, VecDeque<bool>>) {
+        let table = self.make_table();
+        return (self.encode_from_table(data, &table), table);
+    }
+
+    pub fn encode_from_table(&self, data: &[T], table: &HashMap<T, VecDeque<bool>>) -> Vec<bool> {
+
+        let mut out_vec: Vec<bool> = Vec::new();
+
+        for entry in data {
+            let mut entry_data = match &table.get(entry) {
+                Some(v) => (*v).clone(),
+                None => panic!("Can't find value in table!"),
+            };
+
+            out_vec.append(&mut entry_data.make_contiguous().to_vec());
+        }
+
+        return out_vec;
+    }
+
+    pub fn decode(&self, data: &[bool]) -> Vec<T> {
+
+        let mut out_vec: Vec<T> = Vec::new();
+        let root = Arc::new(self.clone());
+        let mut tmp_tree = root.clone();
+
+        for i in data {
+
+            if let Some(v) = &tmp_tree.data.data {
+                out_vec.push(v.clone());
+                tmp_tree = root.clone();
+            }
+
+            if *i {
+                tmp_tree = tmp_tree.right.clone().unwrap();
+            } else {
+                tmp_tree = tmp_tree.left.clone().unwrap();
+            }
+
+        }
+
+        if let Some(v) = &tmp_tree.data.data {
+            out_vec.push(v.clone());
+        }
+
+        return out_vec;
+
+    }
+
+    /// Recursive method for creating a table for encoding text.
+    pub fn make_table(&self) -> HashMap<T, VecDeque<bool>> {
+
+        let mut out_map: HashMap<T, VecDeque<bool>> = HashMap::new();
+
+        if let Some(k) = &self.data.data {
+            out_map.insert(k.clone(), VecDeque::new());
+        }
+
+        if let Some(v) = &self.left {
+            for (k, v) in v.make_table().iter() {
+                let mut new_vec = v.clone();
+                new_vec.push_front(false);
+                // Panics on duplicate values
+                out_map.insert(k.to_owned(), new_vec).ok_or(()).unwrap_err();
+            }
+        }
+
+        if let Some(v) = &self.right{
+            for (k, v) in v.make_table().iter() {
+                let mut new_vec = v.clone();
+                new_vec.push_front(true);
+                // Panics on duplicate values
+                out_map.insert(k.to_owned(), new_vec).ok_or(()).unwrap_err();
+            }
+        }
+
+        return out_map;
+
+    }
+
+}
+
 impl Tree<Node<char>> {
 
     pub fn from_str(data: &str) -> Arc<Self> {
@@ -215,25 +301,25 @@ impl Tree<Node<char>> {
 
 }
 
-impl <T: PartialOrd + Display + Debug> PartialOrd for Tree<T> {
+impl <T: PartialOrd + Display + Debug + Hash> PartialOrd for Tree<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         return self.data.partial_cmp(&other.data);
     }
 }
 
-impl <T: Display + Debug> Display for Tree<T> {
+impl <T: Display + Debug + Hash + Clone> Display for Tree<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         return write!(f, "{}", self.display_string().join("\n"));
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Ord)]
-pub struct Node<T: Debug + PartialOrd> {
+#[derive(Debug, Clone, PartialEq, Eq, Ord, Hash)]
+pub struct Node<T: Debug + PartialOrd + Hash> {
     pub data: Option<T>,
     pub prob: i32,
 }
 
-impl <T: Debug + PartialOrd> Node<T> {
+impl <T: Debug + PartialOrd + Hash> Node<T> {
 
     pub fn new(data: Option<T>, prob: i32) -> Self {
         return Self {
@@ -248,16 +334,18 @@ impl <T: Debug + PartialOrd> Node<T> {
 
 }
 
-impl <T: Debug + PartialOrd> PartialOrd for Node<T> {
+impl <T: Debug + PartialOrd + Hash> PartialOrd for Node<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         return self.prob.partial_cmp(&other.prob);
     }
 }
 
-impl Display for Node<char> {
+impl <T: Debug + PartialOrd + Hash> Display for Node<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let character = self.data.unwrap_or('\u{2205}');
-        return write!(f, "'{}'{}", character, self.prob);
-        // return write!(f, "{}", character);
+        let value = match &self.data {
+            Some(v) => format!("{:?}", v),
+            None => "\u{2205}".to_string(),
+        };
+        return write!(f, "'{}'{}", value, self.prob);
     }
 }
