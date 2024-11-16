@@ -167,7 +167,7 @@ impl <T: Debug + Display + Hash> Tree<T> {
 
 impl <T: Debug + Display + Hash + Eq + PartialOrd + Clone> Tree<Node<T>> {
 
-    /// Creates a encoding table and encodes data
+    /// Creates a encoding table and encodes data.
     pub fn encode(&self, data: &[T]) -> (Vec<bool>, HashMap<T, VecDeque<bool>>) {
         let table = self.make_table();
         return (self.encode_from_table(data, &table), table);
@@ -180,7 +180,7 @@ impl <T: Debug + Display + Hash + Eq + PartialOrd + Clone> Tree<Node<T>> {
         for entry in data {
             let mut entry_data = match &table.get(entry) {
                 Some(v) => (*v).clone(),
-                None => panic!("Can't find value in table!"),
+                None => panic!("Can't find value `{}` in table!", entry),
             };
 
             out_vec.append(&mut entry_data.make_contiguous().to_vec());
@@ -340,10 +340,10 @@ impl <T: Debug + PartialOrd + Hash> PartialOrd for Node<T> {
     }
 }
 
-impl <T: Debug + PartialOrd + Hash> Display for Node<T> {
+impl <T: Debug + PartialOrd + Hash + Display> Display for Node<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value = match &self.data {
-            Some(v) => format!("{:?}", v),
+            Some(v) => format!("{}", v),
             None => "\u{2205}".to_string(),
         };
         return write!(f, "'{}'{}", value, self.prob);
